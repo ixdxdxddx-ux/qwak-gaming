@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>QWAK — Gaming Portal</title>
+<link rel="icon" type="image/svg+xml" href="assets/img/logo.svg">
+<link rel="stylesheet" href="css/design.css">
+<style>
+@keyframes shim{0%{opacity:0;background-position:120% 0}15%{opacity:1}85%{opacity:1}100%{opacity:0;background-position:-20% 0}}
+@keyframes mqs{from{transform:translateY(-50%) translateX(0)}to{transform:translateY(-50%) translateX(-50%)}}
+.stat-row{border-top:1px solid rgba(255,255,255,.05);border-bottom:1px solid rgba(255,255,255,.05);display:flex;justify-content:center;position:relative;z-index:10}
+.si{flex:1;max-width:200px;padding:26px 16px;text-align:center;border-right:1px solid rgba(255,255,255,.05);position:relative;overflow:hidden;transition:background .2s}
+.si:hover{background:rgba(255,255,255,.02)}.si:last-child{border-right:none}
+.si::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:0;height:1px;background:#fff;transition:width .35s}
+.si:hover::after{width:38%}
+.ptag{display:flex;align-items:center;gap:7px;padding:7px 14px;border-radius:3px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025);font-family:'Manrope',sans-serif;font-size:11px;font-weight:600;color:rgba(255,255,255,.28);position:relative;overflow:hidden;transition:all .22s;cursor:none}
+.ptag:hover{border-color:rgba(255,255,255,.24);background:rgba(255,255,255,.055);color:rgba(255,255,255,.5);transform:translateY(-2px)}
+.ptag-line{position:absolute;top:50%;left:10px;right:10px;height:1px;background:rgba(255,255,255,.3);transform:scaleX(0);transform-origin:left;transition:transform .3s .04s}
+.ptag:hover .ptag-line{transform:scaleX(1)}
+.slash{width:12px;height:12px;position:relative;flex-shrink:0;border:1px solid rgba(255,255,255,.2);border-radius:50%}
+.slash::before{content:'';position:absolute;top:50%;left:50%;width:8px;height:1px;background:rgba(255,255,255,.4);transform:translate(-50%,-50%) rotate(-45deg)}
+.vr{display:flex;align-items:flex-start;gap:9px;font-size:12px;font-weight:500;color:#303848;margin-bottom:9px;line-height:1.5;font-family:'Manrope',sans-serif}
+.vr:last-child{margin-bottom:0}
+.vdx{width:14px;height:14px;border-radius:50%;flex-shrink:0;margin-top:1px;border:1px solid rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center}
+.vdx::after{content:'';width:7px;height:1px;background:rgba(255,255,255,.25);display:block}
+.vdo{width:14px;height:14px;border-radius:50%;flex-shrink:0;margin-top:1px;border:1px solid rgba(255,255,255,.26);display:flex;align-items:center;justify-content:center}
+.vdo::after{content:'';width:5px;height:4px;border-bottom:1px solid rgba(255,255,255,.75);border-right:1px solid rgba(255,255,255,.75);transform:rotate(45deg) translate(-1px,-1px);display:block}
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+<div id="cur"></div><div id="cur-ring"></div>
+<nav class="nav"><div class="nav-i">
+  <a class="brand" href="index.html"><div class="bmark">Q</div><span class="bname">QWAK</span></a>
+  <div class="nlinks" id="navLinks">
+    <a class="nav-link" href="index.html">Главная</a>
+    <a class="nav-link" href="pages/games.html">Игры</a>
+    <a class="nav-link" href="pages/forum.html">Форум</a>
+    <a class="nav-link" href="pages/launcher.html">Лаунчер</a>
+  </div>
+  <div class="nbtns" id="navAuth"></div>
+  <button class="burger" id="burgerBtn"><span></span><span></span><span></span></button>
+</div></nav>
+
+<section style="position:relative;z-index:10;padding:150px 0 110px;text-align:center">
+  <div style="font-family:'Manrope',sans-serif;font-size:10px;font-weight:700;letter-spacing:7px;text-transform:uppercase;color:#252d3a;margin-bottom:28px;display:flex;align-items:center;justify-content:center;gap:16px" class="fade-in"><span style="display:block;width:18px;height:1px;background:#1e2430"></span>Gaming Portal<span style="display:block;width:18px;height:1px;background:#1e2430"></span></div>
+  <div style="position:relative;display:inline-block;margin-bottom:18px" class="fade-in delay-1">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:clamp(88px,15vw,158px);letter-spacing:8px;color:#fff;line-height:1;position:relative;z-index:1">QWAK</div>
+    <div aria-hidden="true" style="font-family:'Bebas Neue',sans-serif;font-size:clamp(88px,15vw,158px);letter-spacing:8px;line-height:1;position:absolute;inset:0;z-index:2;opacity:0;background:linear-gradient(105deg,transparent 25%,rgba(255,255,255,.75) 50%,transparent 75%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;background-size:300% 100%;animation:shim 1.8s ease .7s forwards">QWAK</div>
+  </div>
+  <p style="font-family:'Manrope',sans-serif;font-size:10px;font-weight:700;letter-spacing:5px;text-transform:uppercase;color:#252d3a;margin-bottom:46px" class="fade-in delay-2">Скачивай — Играй — Общайся</p>
+  <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap" class="fade-in delay-3">
+    <a href="pages/games.html" class="btn bp">Каталог игр</a>
+    <a href="pages/forum.html" class="btn bw">Форум</a>
+    <a href="pages/launcher.html" class="btn bw">Лаунчер</a>
+  </div>
+</section>
+
+<div class="stat-row">
+  <div class="si"><div style="font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:2px;color:#fff;line-height:1" id="statGames">0</div><div style="font-family:'Manrope',sans-serif;font-size:9px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#252d3a;margin-top:5px">Игр</div></div>
+  <div class="si"><div style="font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:2px;color:#fff;line-height:1" id="statUsers">0</div><div style="font-family:'Manrope',sans-serif;font-size:9px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#252d3a;margin-top:5px">Игроков</div></div>
+  <div class="si"><div style="font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:2px;color:#fff;line-height:1" id="statThreads">0</div><div style="font-family:'Manrope',sans-serif;font-size:9px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#252d3a;margin-top:5px">Тем</div></div>
+  <div class="si"><div style="font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:2px;color:#fff;line-height:1" id="statFiles">0</div><div style="font-family:'Manrope',sans-serif;font-size:9px;font-weight:700;letter-spacing:4px;text-transform:uppercase;color:#252d3a;margin-top:5px">Файлов</div></div>
+</div>
+
+<section style="position:relative;z-index:10;padding:90px 0 100px;overflow:hidden">
+  <div style="position:absolute;inset:0;background:radial-gradient(ellipse 52% 42% at 50% 50%,rgba(255,255,255,.02) 0%,transparent 70%);pointer-events:none"></div>
+  <div style="position:absolute;top:50%;left:0;white-space:nowrap;font-family:'Bebas Neue',sans-serif;font-size:110px;letter-spacing:6px;color:rgba(255,255,255,.012);animation:mqs 24s linear infinite;pointer-events:none;user-select:none">F*CK THOSE SITES&nbsp;&nbsp;&nbsp;&nbsp;F*CK THOSE SITES&nbsp;&nbsp;&nbsp;&nbsp;F*CK THOSE SITES&nbsp;&nbsp;&nbsp;&nbsp;F*CK THOSE SITES&nbsp;&nbsp;&nbsp;&nbsp;</div>
+  <div class="Ws" style="position:relative;z-index:1">
+    <p style="font-family:'Manrope',sans-serif;text-align:center;font-size:9px;font-weight:700;letter-spacing:7px;text-transform:uppercase;color:#1e2430;margin-bottom:18px">пока они делали это</p>
+    <h2 style="font-family:'Bebas Neue',sans-serif;font-size:clamp(52px,10vw,96px);letter-spacing:6px;color:#fff;text-align:center;line-height:1">F*CK <span style="-webkit-text-stroke:1px rgba(255,255,255,.45);-webkit-text-fill-color:transparent">THIS</span></h2>
+    <p style="font-family:'Manrope',sans-serif;text-align:center;font-size:9px;font-weight:700;letter-spacing:7px;text-transform:uppercase;color:#1e2430;margin-top:14px;margin-bottom:56px">мы сделали лучше</p>
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-bottom:52px">
+      <div class="ptag"><div class="slash"></div>torrent-igrukha.ru<span class="ptag-line"></span></div>
+      <div class="ptag"><div class="slash"></div>haTaB<span class="ptag-line"></span></div>
+      <div class="ptag"><div class="slash"></div>rutor.info<span class="ptag-line"></span></div>
+      <div class="ptag"><div class="slash"></div>nnmclub<span class="ptag-line"></span></div>
+      <div class="ptag"><div class="slash"></div>skidrow.com<span class="ptag-line"></span></div>
+      <div class="ptag"><div class="slash"></div>gamespc.ru<span class="ptag-line"></span></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="border-radius:4px;padding:22px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.06)">
+        <div style="font-family:'Manrope',sans-serif;font-size:9px;letter-spacing:4px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.2);margin-bottom:16px">Они</div>
+        <div class="vr"><div class="vdx"></div>Реклама на каждом пикселе</div>
+        <div class="vr"><div class="vdx"></div>Вирусы в установщике</div>
+        <div class="vr"><div class="vdx"></div>10 кликов до скачивания</div>
+        <div class="vr"><div class="vdx"></div>Сайт закроется завтра</div>
+        <div class="vr"><div class="vdx"></div>Нет комьюнити</div>
+      </div>
+      <div style="border-radius:4px;padding:22px;background:rgba(255,255,255,.038);border:1px solid rgba(255,255,255,.1)">
+        <div style="font-family:'Manrope',sans-serif;font-size:9px;letter-spacing:4px;font-weight:700;text-transform:uppercase;color:rgba(255,255,255,.65);margin-bottom:16px">QWAK</div>
+        <div class="vr" style="color:#556070"><div class="vdo"></div>Ноль рекламы, ноль pop-up</div>
+        <div class="vr" style="color:#556070"><div class="vdo"></div>VirusTotal встроен</div>
+        <div class="vr" style="color:#556070"><div class="vdo"></div>Прямая ссылка, один клик</div>
+        <div class="vr" style="color:#556070"><div class="vdo"></div>Облако — бэкап всегда</div>
+        <div class="vr" style="color:#556070"><div class="vdo"></div>Форум, чат, свои люди</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="recentGamesSection" style="position:relative;z-index:10;padding:56px 0;border-top:1px solid rgba(255,255,255,.05)">
+  <div class="W">
+    <div class="sec-top"><div><div class="sec-ey">Каталог</div><div class="sec-ti">Недавно добавленные</div></div><a href="pages/games.html" class="btn bw bs">Все игры</a></div>
+    <div class="games-grid" id="recentGames"></div>
+  </div>
+</section>
+
+<section id="recentForumSection" style="position:relative;z-index:10;padding:56px 0;border-top:1px solid rgba(255,255,255,.05)">
+  <div class="W">
+    <div class="sec-top"><div><div class="sec-ey">Комьюнити</div><div class="sec-ti">Последние темы</div></div><a href="pages/forum.html" class="btn bw bs">Форум</a></div>
+    <div class="thread-list" id="recentThreads"></div>
+  </div>
+</section>
+
+<footer class="footer" style="position:relative;z-index:10">
+  <div class="W footer__inner">
+    <div class="footer__brand"><div class="bmark">Q</div><span class="footer__name">QWAK</span></div>
+    <div class="footer__links"><a href="index.html">Главная</a><a href="pages/games.html">Игры</a><a href="pages/forum.html">Форум</a><a href="pages/launcher.html">Лаунчер</a></div>
+    <div class="footer__copy">2024 QWAK Gaming Portal</div>
+  </div>
+</footer>
+
+<div id="modalsContainer"></div>
+<div class="toast-container" id="toastContainer"></div>
+<script src="js/utils.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/launcher-sync.js"></script>
+<script src="js/games.js"></script>
+<script src="js/forum.js"></script>
+<script src="js/design.js"></script>
+<script src="js/buttons.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  Auth.init();
+  LauncherSync.init();
+  Utils.setActiveNav();
+  Utils.initBurger();
+
+  setTimeout(() => {
+    const navAuth = document.getElementById('navAuth');
+    if (navAuth && !navAuth.innerHTML.trim()) {
+      Auth.renderNav();
+    }
+  }, 100);
+
+  const updateStats = () => {
+    const games = DB.getGames();
+    const users = DB.getUsers();
+    const threads = DB.getThreads();
+    const files = games.reduce((a, g) => a + (g.files?.length || 0), 0);
+
+    const animateCount = (el, target) => {
+      if (!el) return;
+      let cur = 0;
+      const step = Math.max(1, Math.floor(target / 40));
+      const iv = setInterval(() => {
+        cur = Math.min(cur + step, target);
+        el.textContent = cur >= 1000 ? (cur / 1000).toFixed(1) + 'K' : cur;
+        if (cur >= target) clearInterval(iv);
+      }, 30);
+    };
+
+    animateCount(document.getElementById('statGames'), games.length);
+    animateCount(document.getElementById('statUsers'), users.length);
+    animateCount(document.getElementById('statThreads'), threads.length);
+    animateCount(document.getElementById('statFiles'), files);
+  };
+
+  updateStats();
+
+  const renderRecent = () => {
+    const games = DB.getGames().slice(-4).reverse();
+    Games.renderGrid('recentGames', games);
+    const sec = document.getElementById('recentGamesSection');
+    if (sec) sec.style.display = games.length ? '' : 'none';
+  };
+  renderRecent();
+
+  const renderThreads = () => {
+    const threads = DB.getThreads().slice(-4).reverse();
+    const container = document.getElementById('recentThreads');
+    const sec = document.getElementById('recentForumSection');
+    if (!container) return;
+    if (!threads.length) { if (sec) sec.style.display = 'none'; return; }
+    if (sec) sec.style.display = '';
+    container.innerHTML = '';
+    threads.forEach(t => {
+      const row = document.createElement('div');
+      row.className = 'thread-item';
+      row.innerHTML = `
+        <div style="flex:1;min-width:0">
+          <div style="font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:#fff;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.pinned ? '📌 ' : ''}${t.title}</div>
+          <div style="font-size:10px;color:#252d3a">${t.author} · ${t.replies || 0} ответов</div>
+        </div>
+        <div style="font-size:10px;color:#252d3a;text-align:right;flex-shrink:0">${t.replies || 0}</div>`;
+      row.style.cursor = 'pointer';
+      row.onclick = () => { location.href = `pages/thread.html?id=${t.id}`; };
+      container.appendChild(row);
+    });
+  };
+  renderThreads();
+
+  window.addEventListener('qwak:auth', () => {
+    renderRecent();
+    renderThreads();
+    updateStats();
+    Auth.renderNav();
+  });
+});
+</script>
+</body>
+</html>

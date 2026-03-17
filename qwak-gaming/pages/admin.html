@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Панель — QWAK</title>
+<link rel="icon" type="image/svg+xml" href="../assets/img/logo.svg">
+<link rel="stylesheet" href="../css/design.css">
+</head>
+<body>
+<canvas id="bg"></canvas><div id="cur"></div><div id="cur-ring"></div>
+<nav class="nav"><div class="nav-i W">
+  <a class="brand" href="../index.html"><div class="bmark">Q</div><span class="bname">QWAK</span></a>
+  <div class="nlinks" id="navLinks">
+    <a class="nl" href="../index.html">Главная</a><a class="nl" href="games.html">Игры</a>
+    <a class="nl" href="forum.html">Форум</a><a class="nl" href="launcher.html">Лаунчер</a>
+  </div>
+  <div class="nbtns" id="navAuth">
+    <button class="btn btn--outline btn--sm" id="loginBtn">Войти</button>
+    <button class="btn btn--primary btn--sm" id="regBtn">Регистрация</button>
+  </div>
+  <button class="burger" id="burgerBtn"><span></span><span></span><span></span></button>
+</div></nav>
+<main class="page-transition" style="padding-top:52px">
+  <div class="W" style="padding-top:40px;padding-bottom:60px">
+    <div class="page-header">
+      <div class="page-header__eyebrow">Управление</div>
+      <h1 class="page-header__title">Панель</h1>
+      <p class="page-header__desc">Пользователи и каталог</p>
+    </div>
+    <div id="adminContent">
+      <div class="empty-state"><div class="empty-state__title">Нет доступа</div><div class="empty-state__desc">Войдите как администратор</div></div>
+    </div>
+  </div>
+</main>
+<footer class="footer" style="position:relative;z-index:10">
+  <div class="W footer__inner">
+    <div class="footer__brand"><div class="bmark">Q</div><span class="footer__name">QWAK</span></div>
+    <div class="footer__links"><a href="../index.html">Главная</a><a href="games.html">Игры</a><a href="forum.html">Форум</a></div>
+    <div class="footer__copy">2024 QWAK Gaming Portal</div>
+  </div>
+</footer>
+<div id="modalsContainer"></div><div class="toast-container" id="toastContainer"></div>
+<script src="../js/utils.js"></script><script src="../js/storage.js"></script><script src="../js/auth.js"></script>
+<script src="../js/launcher-sync.js"></script><script src="../js/games.js"></script><script src="../js/forum.js"></script>
+<script src="../js/design.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  Auth.init(); LauncherSync.init(); Utils.setActiveNav(); Utils.initBurger();
+  const render = () => {
+    const cont = document.getElementById('adminContent');
+    if (!Auth.canAdmin()) { cont.innerHTML='<div class="empty-state"><div class="empty-state__title">Нет доступа</div><div class="empty-state__desc">Войдите как администратор</div></div>'; return; }
+    let activeTab = 'users';
+    const draw = () => {
+      cont.innerHTML = '<div class="tabs mb-3"><button class="tab-btn'+(activeTab==='users'?' active':'')+'" data-t="users">Пользователи</button><button class="tab-btn'+(activeTab==='games'?' active':'')+'" data-t="games">Игры</button></div><div id="tabBody"></div>';
+      cont.querySelectorAll('.tab-btn').forEach(b => { b.onclick = () => { activeTab = b.dataset.t; draw(); }; });
+      const body = document.getElementById('tabBody');
+      if (activeTab === 'users') {
+        const users = DB.getUsers(); const me = Auth.getCurrentUser();
+        body.innerHTML = '<div style="overflow-x:auto"><table><thead><tr><th>Пользователь</th><th>Роль</th><th>Статус</th><th>Варны</th><th>Действия</th></tr></thead><tbody id="userTbody"></tbody></table></div>';
+        const tbody = document.getElementById('userTbody');
+        users.forEach(u => {
+          const tr = document.createElement('tr');
+          const isMe = u.id === me?.id; const isOwner = u.role === 'owner';
+          const status = u.banned ? '<span class="badge badge--ban">БАН</span>' : u.muted ? '<span class="badge badge--mute">МУТ</span>' : '<span style="font-size:10px;color:rgba(0,200,140,.6);font-weight:600">Активен</span>';
+          let actions = '<span style="font-size:10px;color:#252d3a">—</span>';
+          if (!isOwner && !isMe) {
+            actions = '<div class="action-cell">';
+            actions += u.banned ? '<button class="btn bg bs ban-btn" data-id="'+u.id+'">Разбан</button>' : '<button class="btn bd bs ban-btn" data-id="'+u.id+'">Бан</button>';
+            actions += '<button class="btn bw bs mute-btn" data-id="'+u.id+'">'+(u.muted?'Размут':'Мут')+'</button>';
+            actions += '<button class="btn bw bs warn-btn" data-id="'+u.id+'">Варн</button>';
+            if (me?.role === 'owner') actions += '<select class="role-select" data-id="'+u.id+'"><option value="user"'+(u.role==='user'?' selected':'')+'>user</option><option value="mod"'+(u.role==='mod'?' selected':'')+'>mod</option><option value="admin"'+(u.role==='admin'?' selected':'')+'>admin</option></select>';
+            actions += '</div>';
+          }
+          tr.innerHTML='<td><div style="font-weight:700;color:#c8d4e8;font-size:12px">'+u.username+'</div><div style="font-size:9px;color:#252d3a;margin-top:1px">с '+u.joined+'</div></td><td>'+Utils.roleBadge(u.role)+'</td><td>'+status+'</td><td style="font-family:\'Bebas Neue\',sans-serif;font-size:16px;letter-spacing:1px;color:'+(u.warns>0?'rgba(255,165,0,.7)':'#252d3a')+'">'+u.warns+'</td><td>'+actions+'</td>';
+          tbody.appendChild(tr);
+        });
+        tbody.querySelectorAll('.ban-btn').forEach(b => { b.onclick = () => { const u=DB.getUserById(+b.dataset.id); DB.updateUser(+b.dataset.id,{banned:!u?.banned}); Utils.toast(u?.banned?'Бан снят':'Заблокирован'); draw(); }; });
+        tbody.querySelectorAll('.mute-btn').forEach(b => { b.onclick = () => { const u=DB.getUserById(+b.dataset.id); DB.updateUser(+b.dataset.id,{muted:!u?.muted}); Utils.toast('Статус мута изменён'); draw(); }; });
+        tbody.querySelectorAll('.warn-btn').forEach(b => { b.onclick = () => { const u=DB.getUserById(+b.dataset.id); DB.updateUser(+b.dataset.id,{warns:(u?.warns||0)+1}); Utils.toast('Варн выдан'); draw(); }; });
+        tbody.querySelectorAll('.role-select').forEach(s => { s.onchange = () => { DB.updateUser(+s.dataset.id,{role:s.value}); Utils.toast('Роль обновлена'); draw(); }; });
+      } else {
+        const games = DB.getGames();
+        body.innerHTML='<button class="btn bp bs" style="margin-bottom:14px" id="adminAddGame">+ Добавить игру</button><div class="admin-grid" id="gameAdminGrid"></div>';
+        document.getElementById('adminAddGame').onclick = () => Games.openAddModal(() => draw());
+        const grid = document.getElementById('gameAdminGrid');
+        if (!games.length) { grid.innerHTML='<div class="empty-state" style="grid-column:1/-1"><div class="empty-state__title">Каталог пуст</div></div>'; return; }
+        games.forEach(g => {
+          const card = document.createElement('div');
+          card.style.cssText='background:#090a0e;border:1px solid rgba(255,255,255,.07);border-radius:4px;overflow:hidden';
+          const cover=g.sid?'<img src="https://cdn.cloudflare.steamstatic.com/steam/apps/'+g.sid+'/header.jpg" style="width:100%;height:68px;object-fit:cover;display:block;filter:brightness(.8)" onerror="this.style.display=\'none\'">':'<div style="height:68px;background:linear-gradient(135deg,#07080c,#121420)"></div>';
+          card.innerHTML=cover+'<div style="padding:10px 12px"><div style="font-size:11px;font-weight:700;color:#c8d4e8;margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+g.title+'</div><div style="font-size:10px;color:#252d3a;margin-bottom:8px">'+(g.files?.length||0)+' файлов</div><button class="btn bd bs" style="width:100%" data-gid="'+g.id+'">Удалить</button></div>';
+          card.querySelector('[data-gid]').onclick=async()=>{if(await Utils.confirm('Удалить "'+g.title+'"?')){DB.deleteGame(g.id);Utils.toast('Игра удалена');draw();}};
+          grid.appendChild(card);
+        });
+      }
+    };
+    draw();
+  };
+  render(); window.addEventListener('qwak:auth', render);
+});
+</script>
+</body>
+</html>

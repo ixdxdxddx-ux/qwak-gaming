@@ -52,13 +52,25 @@ const DB = {
   updateUser(id, patch) {
     const users = DB.getUsers().map(u => u.id === id ? { ...u, ...patch } : u);
     DB.saveUsers(users);
+    const updated = users.find(u => u.id === id);
+    if (updated && window.supabaseClient) DB._syncUserToSupabase(updated);
     const sess = DB.getSession();
     if (sess?.user?.id === id) {
       DB.saveSession({ ...sess, user: { ...sess.user, ...patch } });
     }
   },
-  addUser(user) { const users = [...DB.getUsers(), user]; DB.saveUsers(users); return user; },
-  deleteUser(id) { DB.saveUsers(DB.getUsers().filter(u => u.id !== id)); },
+  addUser(user) {
+    const users = [...DB.getUsers(), user];
+    DB.saveUsers(users);
+    if (window.supabaseClient) DB._syncUserToSupabase(user);
+    return user;
+  },
+  deleteUser(id) {
+    DB.saveUsers(DB.getUsers().filter(u => u.id !== id));
+    if (window.supabaseClient) {
+      window.supabaseClient.from('users').delete().eq('id', id).then(() => {});
+    }
+  },
 
   getSession() { return DB.get(KEYS.SESSION); },
   saveSession(session) { return DB.set(KEYS.SESSION, session); },
@@ -110,6 +122,26 @@ const DB = {
   },
   deletePosts(threadId) { const all = DB.get(KEYS.POSTS, {}); delete all[threadId]; DB.set(KEYS.POSTS, all); },
 
+  async _syncUserToSupabase(user) {
+    if (!window.supabaseClient) return;
+    try {
+      const { error } = await window.supabaseClient.from('users').upsert({
+        id:       user.id,
+        username: user.username,
+        role:     user.role,
+        joined:   user.joined,
+        banned:   user.banned  || false,
+        muted:    user.muted   || false,
+        warns:    user.warns   || 0,
+        bio:      user.bio     || '',
+      }, { onConflict: 'id' });
+      if (error) console.error('❌ Supabase user sync:', error.message);
+      else console.log('✅ Пользователь в облаке:', user.username);
+    } catch (e) {
+      console.error('❌', e.message);
+    }
+  },
+
   async _syncGameToSupabase(game) {
     if (!window.supabaseClient) return;
     try {
@@ -137,18 +169,34 @@ const DB = {
   async _syncFromSupabase() {
     if (!window.supabaseClient) return;
     try {
-      const { data: games, error } = await window.supabaseClient.from('games').select('*');
-      if (error) { console.warn('⚠️', error.message); return; }
-      if (games && games.length > 0) {
+      const [{ data: games, error: gErr }, { data: users, error: uErr }] = await Promise.all([
+        window.supabaseClient.from('games').select('*'),
+        window.supabaseClient.from('users').select('*'),
+      ]);
+
+      if (!gErr && games && games.length > 0) {
         console.log('📥 Синхронизировано игр:', games.length);
         const parsed = games.map(g => ({
           ...g,
           desc:    g.description,
-          addedBy: g.added_by,           // ✅ маппим обратно в camelCase для локального использования
+          addedBy: g.added_by,
           tags:    typeof g.tags === 'string' ? JSON.parse(g.tags || '[]') : (g.tags || []),
           files:   typeof g.files === 'string' ? JSON.parse(g.files || '[]') : (g.files || []),
         }));
         DB.set(KEYS.GAMES, parsed);
+      }
+
+      if (!uErr && users && users.length > 0) {
+        console.log('📥 Синхронизировано пользователей:', users.length);
+        const local = DB.get(KEYS.USERS, []);
+        const merged = users.map(u => {
+          const localUser = local.find(l => l.id === u.id);
+          return localUser ? { ...u, password: localUser.password } : u;
+        });
+        local.forEach(lu => {
+          if (!merged.find(u => u.id === lu.id)) merged.push(lu);
+        });
+        DB.set(KEYS.USERS, merged);
       }
     } catch (e) {
       console.error('❌ Sync:', e.message);
@@ -170,7 +218,9 @@ const initSupabase = new Promise((resolve) => {
       'sb_publishable_Lca2Hzb2VdzBRNBnyOA8iQ__3tpuot-'
     );
     console.log('✅ Supabase готов');
-    DB._syncFromSupabase();
+    DB._syncFromSupabase().then(() => {
+      DB.getUsers().forEach(u => DB._syncUserToSupabase(u));
+    });
     setInterval(() => DB._syncFromSupabase(), 30000);
     resolve(window.supabaseClient);
   };

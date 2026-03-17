@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "R6kA-oflWIo6Yi-r2FCzP"
+uri = "file://qwak-gaming.tar.gz"
+type = "unspecified"
+title = "qwak-gaming.tar.gz"

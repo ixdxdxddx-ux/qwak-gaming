@@ -238,22 +238,112 @@ const Games = {
 
   // ─── Fetch game data from Steam API ─────────────
 
-  async fetchSteamData(sid) {
+  async _fetchSteamSpy(sid) {
+    try {
+      const res = await fetch(`https://steamspy.com/api.php?request=appdetails&appid=${sid}`, { signal: AbortSignal.timeout(10000) });
+      if (!res.ok) return null;
+      const d = await res.json();
+      if (!d?.appid) return null;
+      return d;
+    } catch { return null; }
+  },
+
+  async _fetchSteamStore(sid) {
+    const steamUrl = `https://store.steampowered.com/api/appdetails?appids=${sid}&l=russian`;
+    const key = String(sid);
+    const tryParse = (json) => {
+      const entry = json?.[key] ?? json?.[Number(key)];
+      if (entry?.success && entry?.data) return entry.data;
+      return null;
+    };
     const PROXIES = [
-      `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://store.steampowered.com/api/appdetails?appids=${sid}&l=russian`)}`,
-      `https://corsproxy.io/?${encodeURIComponent(`https://store.steampowered.com/api/appdetails?appids=${sid}&l=russian`)}`,
+      async () => {
+        const r = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(steamUrl)}`, { signal: AbortSignal.timeout(10000) });
+        const w = await r.json(); return tryParse(JSON.parse(w.contents));
+      },
+      async () => {
+        const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(steamUrl)}`, { signal: AbortSignal.timeout(10000) });
+        return tryParse(await r.json());
+      },
+      async () => {
+        const r = await fetch(`https://corsproxy.io/?${encodeURIComponent(steamUrl)}`, { signal: AbortSignal.timeout(10000) });
+        return tryParse(await r.json());
+      },
+      async () => {
+        const r = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(steamUrl)}`, { signal: AbortSignal.timeout(10000) });
+        return tryParse(await r.json());
+      },
     ];
-    for (const url of PROXIES) {
-      try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        if (!res.ok) continue;
-        const json = await res.json();
-        const entry = json?.[sid];
-        if (!entry?.success) continue;
-        return entry.data;
-      } catch { continue; }
+    for (const fn of PROXIES) {
+      try { const d = await fn(); if (d) return d; } catch { }
     }
     return null;
+  },
+
+  async fetchSteamData(sid) {
+    // Запрашиваем оба источника параллельно
+    const [spy, store] = await Promise.all([
+      Games._fetchSteamSpy(sid),
+      Games._fetchSteamStore(sid),
+    ]);
+
+    if (!spy && !store) return null;
+
+    // Теги из SteamSpy (user-теги, сортируем по популярности)
+    const spyTags = spy?.tags
+      ? Object.entries(spy.tags).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([t]) => t)
+      : [];
+
+    // Теги из Store API (жанры + категории)
+    const storeTags = [
+      ...(store?.genres || []).map(g => g.description),
+      ...(store?.categories || []).slice(0, 4).map(c => c.description),
+    ];
+
+    const allTags = spyTags.length ? spyTags : [...new Set(storeTags)];
+
+    // Описание: предпочитаем Store, fallback — SteamSpy
+    const rawDesc = store?.short_description || store?.detailed_description || '';
+    const tmp = document.createElement('div');
+    tmp.innerHTML = rawDesc;
+    const desc = tmp.textContent.trim() || spy?.name || '';
+
+    // Жанр
+    const genre = store?.genres?.map(g => g.description).join(', ')
+      || spy?.genre
+      || 'Разное';
+
+    // Рейтинг: Metacritic / SteamSpy positive ratio
+    let rating = 7.0;
+    if (store?.metacritic?.score) {
+      rating = +(store.metacritic.score / 10).toFixed(1);
+    } else if (spy?.positive && spy?.negative) {
+      const total = spy.positive + spy.negative;
+      rating = total > 0 ? +((spy.positive / total) * 10).toFixed(1) : 7.0;
+    }
+
+    // Год выхода
+    let year = new Date().getFullYear();
+    const dateStr = store?.release_date?.date || '';
+    const ym = dateStr.match(/\d{4}/);
+    if (ym) year = +ym[0];
+
+    return {
+      // Стандартный формат Steam Store
+      name:              store?.name || spy?.name || '',
+      short_description: desc,
+      genres:            store?.genres || (spy?.genre ? [{ description: spy.genre }] : []),
+      developers:        store?.developers || (spy?.developer ? [spy.developer] : []),
+      publishers:        store?.publishers || (spy?.publisher ? [spy.publisher] : []),
+      release_date:      store?.release_date || { date: String(year) },
+      metacritic:        store?.metacritic || null,
+      pc_requirements:   store?.pc_requirements || null,
+      // Нормализованные поля
+      _tags:   allTags,
+      _rating: rating,
+      _year:   year,
+      _desc:   desc,
+    };
   },
 
   _parseRequirements(html) {
@@ -431,44 +521,32 @@ const Games = {
       statusEl.style.display = 'none';
       try {
         const d = await Games.fetchSteamData(sid);
-        if (!d) { Utils.toast('Игра не найдена в Steam', 'err'); return; }
+        if (!d) { Utils.toast('Не удалось получить данные. Проверь App ID или попробуй позже', 'err'); return; }
 
-        const set = (id, val) => { const el = Utils.qs(id, overlay); if (el && val) el.value = val; };
+        const set = (id, val) => { const el = Utils.qs(id, overlay); if (el && val !== undefined && val !== '') el.value = val; };
 
-        set('#ag-title', d.name);
-
-        const rawDesc = d.short_description || d.detailed_description || '';
-        const tmp = document.createElement('div');
-        tmp.innerHTML = rawDesc;
-        set('#ag-desc', tmp.textContent.trim());
-
-        const genres = (d.genres || []).map(g => g.description).join(', ');
-        set('#ag-genre', genres);
-
-        set('#ag-dev', (d.developers || []).join(', '));
-        set('#ag-pub', (d.publishers || []).join(', '));
-
-        const dateStr = d.release_date?.date || '';
-        const yearMatch = dateStr.match(/\d{4}/);
-        if (yearMatch) set('#ag-year', yearMatch[0]);
-
-        const catTags = (d.categories || []).slice(0, 5).map(c => c.description);
-        const genreTags = (d.genres || []).map(g => g.description);
-        const allTags = [...new Set([...genreTags, ...catTags])];
-        set('#ag-tags', allTags.join(', '));
-
-        if (d.metacritic?.score) {
-          set('#ag-rating', (d.metacritic.score / 10).toFixed(1));
-        }
+        set('#ag-title',  d.name);
+        set('#ag-desc',   d._desc);
+        set('#ag-genre',  (d.genres || []).map(g => g.description).join(', ') || '');
+        set('#ag-dev',    (d.developers || []).join(', '));
+        set('#ag-pub',    (d.publishers || []).join(', '));
+        set('#ag-year',   d._year);
+        set('#ag-tags',   (d._tags || []).join(', '));
+        set('#ag-rating', d._rating);
 
         if (d.pc_requirements) {
           _sysMin = Games._parseRequirements(d.pc_requirements.minimum);
           _sysRec = Games._parseRequirements(d.pc_requirements.recommended);
         }
 
-        statusEl.textContent = '✅ Данные из Steam загружены';
+        const sources = [];
+        if (d._tags?.length) sources.push('теги SteamSpy');
+        if (d._desc)         sources.push('описание Steam');
+        if (_sysMin)         sources.push('сист. требования');
+
+        statusEl.textContent = `✅ Загружено: ${sources.join(', ') || 'базовые данные'}`;
         statusEl.style.display = 'block';
-        Utils.toast('Данные из Steam загружены! 🎮');
+        Utils.toast('Данные загружены! 🎮');
       } catch (e) {
         Utils.toast('Ошибка загрузки Steam', 'err');
         console.error(e);

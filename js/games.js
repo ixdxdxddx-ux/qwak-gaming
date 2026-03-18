@@ -236,6 +236,47 @@ const Games = {
     return Math.abs(hash).toString(16);
   },
 
+  // ─── Fetch game data from Steam API ─────────────
+
+  async fetchSteamData(sid) {
+    const PROXIES = [
+      `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://store.steampowered.com/api/appdetails?appids=${sid}&l=russian`)}`,
+      `https://corsproxy.io/?${encodeURIComponent(`https://store.steampowered.com/api/appdetails?appids=${sid}&l=russian`)}`,
+    ];
+    for (const url of PROXIES) {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) continue;
+        const json = await res.json();
+        const entry = json?.[sid];
+        if (!entry?.success) continue;
+        return entry.data;
+      } catch { continue; }
+    }
+    return null;
+  },
+
+  _parseRequirements(html) {
+    if (!html) return { os:'—', cpu:'—', ram:'—', gpu:'—', storage:'—' };
+    const tmp = document.createElement('div');
+    tmp.innerHTML = html;
+    const text = tmp.textContent;
+    const get = (keys) => {
+      for (const k of keys) {
+        const m = text.match(new RegExp(k + '[:\\s]+([^\\n<]+)', 'i'));
+        if (m) return m[1].trim().replace(/\s+/g, ' ');
+      }
+      return '—';
+    };
+    return {
+      os:      get(['OS', 'ОС', 'Операционная система']),
+      cpu:     get(['CPU', 'Processor', 'Процессор']),
+      ram:     get(['RAM', 'Memory', 'Память']),
+      gpu:     get(['GPU', 'Graphics', 'Видеокарта', 'Видео']),
+      storage: get(['Storage', 'HDD', 'SSD', 'Место', 'DirectX']),
+    };
+  },
+
   // ─── Add game modal ──────────────────────────────
 
   openAddModal(onAdded) {
@@ -254,7 +295,14 @@ const Games = {
         <div class="field"><div class="field__label">Название *</div><input id="ag-title" placeholder="Cyberpunk 2077"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div class="field"><div class="field__label">Жанр</div><input id="ag-genre" placeholder="RPG, FPS..."></div>
-          <div class="field"><div class="field__label">Steam App ID (для обложки)</div><input id="ag-sid" placeholder="1091500" type="number"></div>
+          <div class="field">
+            <div class="field__label">Steam App ID</div>
+            <div style="display:flex;gap:8px;align-items:flex-start">
+              <input id="ag-sid" placeholder="1091500" type="number" style="flex:1">
+              <button class="btn btn--outline btn--sm" id="ag-steam-fetch" style="flex-shrink:0;white-space:nowrap;margin-top:1px">🎮 Загрузить</button>
+            </div>
+            <div id="ag-steam-status" style="font-size:10px;color:#2e8b57;margin-top:4px;display:none"></div>
+          </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
           <div class="field"><div class="field__label">Разработчик</div><input id="ag-dev" placeholder="CD Projekt"></div>
@@ -321,6 +369,8 @@ const Games = {
     const { overlay, close } = Utils.openModal(wrap, true);
 
     let _files = [];
+    let _sysMin = null;
+    let _sysRec = null;
     const fileInput = Utils.qs('#ag-fileInput', overlay);
     const fileList  = Utils.qs('#ag-fileList', overlay);
     const dropzone  = Utils.qs('#ag-dropzone', overlay);
@@ -370,6 +420,64 @@ const Games = {
       if (name?.trim()) { _files.push({ name: name.trim(), size: 0, type: 'folder' }); renderFiles(); }
     };
 
+    // Steam auto-fill
+    Utils.qs('#ag-steam-fetch', overlay).onclick = async () => {
+      const sid = Utils.qs('#ag-sid', overlay).value.trim();
+      if (!sid) { Utils.toast('Введи Steam App ID', 'err'); return; }
+      const btn = Utils.qs('#ag-steam-fetch', overlay);
+      const statusEl = Utils.qs('#ag-steam-status', overlay);
+      btn.disabled = true;
+      btn.textContent = '⏳ Загрузка...';
+      statusEl.style.display = 'none';
+      try {
+        const d = await Games.fetchSteamData(sid);
+        if (!d) { Utils.toast('Игра не найдена в Steam', 'err'); return; }
+
+        const set = (id, val) => { const el = Utils.qs(id, overlay); if (el && val) el.value = val; };
+
+        set('#ag-title', d.name);
+
+        const rawDesc = d.short_description || d.detailed_description || '';
+        const tmp = document.createElement('div');
+        tmp.innerHTML = rawDesc;
+        set('#ag-desc', tmp.textContent.trim());
+
+        const genres = (d.genres || []).map(g => g.description).join(', ');
+        set('#ag-genre', genres);
+
+        set('#ag-dev', (d.developers || []).join(', '));
+        set('#ag-pub', (d.publishers || []).join(', '));
+
+        const dateStr = d.release_date?.date || '';
+        const yearMatch = dateStr.match(/\d{4}/);
+        if (yearMatch) set('#ag-year', yearMatch[0]);
+
+        const catTags = (d.categories || []).slice(0, 5).map(c => c.description);
+        const genreTags = (d.genres || []).map(g => g.description);
+        const allTags = [...new Set([...genreTags, ...catTags])];
+        set('#ag-tags', allTags.join(', '));
+
+        if (d.metacritic?.score) {
+          set('#ag-rating', (d.metacritic.score / 10).toFixed(1));
+        }
+
+        if (d.pc_requirements) {
+          _sysMin = Games._parseRequirements(d.pc_requirements.minimum);
+          _sysRec = Games._parseRequirements(d.pc_requirements.recommended);
+        }
+
+        statusEl.textContent = '✅ Данные из Steam загружены';
+        statusEl.style.display = 'block';
+        Utils.toast('Данные из Steam загружены! 🎮');
+      } catch (e) {
+        Utils.toast('Ошибка загрузки Steam', 'err');
+        console.error(e);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '🎮 Загрузить';
+      }
+    };
+
     // Tab switching
     const showTab = tab => {
       Utils.qs('#tabInfo',  overlay).classList.toggle('hidden', tab !== 'info');
@@ -405,8 +513,8 @@ const Games = {
         size:     fmtSize(totalSize),
         addedBy:  Auth.getCurrentUser()?.username || '—',
         addedAt:  Utils.nowDate(),
-        sysMin:   { os:'—', cpu:'—', ram:'—', gpu:'—', storage:'—' },
-        sysRec:   { os:'—', cpu:'—', ram:'—', gpu:'—', storage:'—' },
+        sysMin:   _sysMin || { os:'—', cpu:'—', ram:'—', gpu:'—', storage:'—' },
+        sysRec:   _sysRec || { os:'—', cpu:'—', ram:'—', gpu:'—', storage:'—' },
       };
 
       DB.addGame(game);
